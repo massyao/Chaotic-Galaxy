@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chaotic</title>
+  <style type="text/css">
+    *{
+      padding: 0;
+      margin:0;
+      border:0 solid #fff;
+    }
+    ::-webkit-scrollbar {
+        width: 0px;
+    }
+    body{
+        overflow:scroll;
+        overflow-x:hidden;
+        overflow-y:hidden;
+        background-color:#1B2836;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <canvas id="ID">Your Browser does not support Canvas, please upgrade</canvas>
+</div>
+
+<script>
+
+    var  g_obj = {
+        g:0.1, // "6.754×10N·m/kg",
+        time_interval: 1, //  1s   galaxy所在唯独的时间单位
+        star_constant:500,
+        star_num :5 ,
+        star_cluster : 1,
+        velocity : 10,
+        width: window.innerWidth,
+        height:  window.innerHeight,
+        animine_status:true,
+        log_level1: false,  //      true   false
+        log_level2:false,  // 类方法console.log 开关
+        log_level3:false,  // 类方法的for循环 console.log 开关
+
+    };
+    
+    window.requestAnimFrame = (function(){
+      return  window.requestAnimationFrame       || 
+              window.webkitRequestAnimationFrame || 
+              window.mozRequestAnimationFrame    || 
+              window.oRequestAnimationFrame      || 
+              window.msRequestAnimationFrame     || 
+              function( callback ){
+                window.setTimeout(callback, 1000 / 60);
+              };
+    })();
+    
+
+    class Galaxy{
+        
+        constructor(galaxy_name="Galaxy",ctx,canvas){
+            this.name = galaxy_name ;
+            this.stars = [];
+            this.ctx = ctx;
+            this.canvas = canvas;
+            
+            this.render.bind(this);
+
+            /*
+            for(let i= 0;i <g_obj.star_num; i++){
+                this.stars.push(new Star());
+                //console.log(this.stars[i]);
+            }
+            */
+
+        }
+        
+        render(){
+            if(g_obj.star_num < g_obj.star_constant){
+                for(let i= 0;i <g_obj.star_cluster; i++){
+                    this.stars.push(new Star());
+                    g_obj.star_num = this.stars.length;
+                }
+            }
+            this.refresh();
+            this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+            for(let i= 0;i <g_obj.star_num; i++){
+                this.stars[i].render(this.ctx);
+            }
+           
+        }
+    
+        refresh(){
+            for(let i= 0;i <g_obj.star_num; i++){
+                this.refesh_f(i);
+            }
+            //console.log(g_obj.star_num);
+            for(let i= 0;i <g_obj.star_num; i++){
+                this.refesh_a(i);
+            }
+            
+            for(let i= 0;i <g_obj.star_num; i++){
+                this.refesh_v(i);
+            }
+            
+            for(let i= 0;i <g_obj.star_num; i++){
+                this.refesh_p(i);
+            }
+            
+            this.apply();
+        }
+        
+        refesh_f(star_index){
+            let  fx_total = 0;
+            let  fy_total = 0;
+            
+            g_obj.log_level2  && console.log("star ",star_index," status","\n");
+            g_obj.log_level2  && console.table(this.stars[star_index].status);
+        
+            if(!this.stars[star_index]  || !this.stars[star_index].status_next ){ //  star_index > this.stars.length-1
+                return;
+            }
+            
+            for(let i= 0;i < this.stars.length; i++){ //g_obj.star_num
+
+                if( star_index  === i){
+                    continue;
+                }
+
+                let  star_a = this.stars[i];
+                if(!star_a){continue;}
+                let  star_a_status = star_a.status;
+                let  star_b = this.stars[star_index];
+                if(!star_b){continue;}
+                let  star_b_status = star_b.status;
+                //let  sign_x = star_a_status.px > star.status.px ? 1 : -1;
+                //let  sign_y = star_a_status.py > star.status.py ? 1 : -1;
+                let  dx = star_a_status.px - star_b_status.px ;
+                let  dy = star_a_status.py - star_b_status.py ;
+                let  dx2 = dx* dx ;
+                let  dy2 = dy* dy ;
+                let  r2 = dx2 + dy2;
+                if(r2 < 100 ){
+                    // collide
+                    
+                    star_b.status.vx = (star_b.status.vx*star_b.mass + star_a.status.vx*star_a.mass)/(star_b.mass +star_a.mass);
+                    star_b.status.vy = (star_b.status.vy*star_b.mass + star_a.status.vy*star_a.mass)/(star_b.mass +star_a.mass);
+                    star_b.mass = star_b.mass +star_a.mass;
+                    star_b.size=Math.ceil(Math.cbrt(star_b.mass));
+                    this.stars.splice(i,1);
+                    g_obj.log_level3 && console.log("star ",i," collide with star ",star_index);
+                    g_obj.star_num = this.stars.length;//g_obj.star_num - 1;
+                    g_obj.log_level3 && console.log("the galaxy has ",g_obj.star_num," stars left");
+                    continue;
+                }
+                let  r4 = r2*r2;
+                let  r = Math.sqrt(r2);
+                let a = g_obj.g* star_a.mass*star_b.mass  *r / r4;
+                fx_total += a*dx ;
+                fy_total += a*dy ;
+                
+                g_obj.log_level3  && console.table({dx,dy,dx2,dy2,r,r2,r4,fx_total,fy_total });
+                
+            }
+            if(!this.stars[star_index]  || !this.stars[star_index].status_next ){ //  star_index > this.stars.length-1
+                return;
+            }
+            this.stars[star_index].status_next.fx = fx_total;
+            this.stars[star_index].status_next.fy = fy_total;
+            
+            g_obj.log_level2  && console.log("star ",i," status_next","\n");
+            g_obj.log_level2  && console.table(this.stars[star_index].status_next);
+            
+        }
+        
+        refesh_a(star_index){
+            this.stars[star_index].status_next.ax = this.stars[star_index].status_next.fx /  this.stars[star_index].mass;
+            this.stars[star_index].status_next.ay = this.stars[star_index].status_next.fy /  this.stars[star_index].mass;
+        }
+        
+        refesh_v(star_index){
+            this.stars[star_index].status_next.vx = this.stars[star_index].status.vx + this.stars[star_index].status_next.ax * g_obj.time_interval;
+            this.stars[star_index].status_next.vy = this.stars[star_index].status.vy + this.stars[star_index].status_next.ay * g_obj.time_interval;
+        }
+        
+        refesh_p(star_index){
+            this.stars[star_index].status_next.px = this.stars[star_index].status.px + this.stars[star_index].status.vx * g_obj.time_interval + this.stars[star_index].status_next.ax * g_obj.time_interval * g_obj.time_interval  ;
+            this.stars[star_index].status_next.py = this.stars[star_index].status.py + this.stars[star_index].status.vy * g_obj.time_interval + this.stars[star_index].status_next.ay * g_obj.time_interval * g_obj.time_interval  ;
+        
+            var outrange_x =  this.stars[star_index].status_next.px > g_obj.width || this.stars[star_index].status_next.px < 0 ;
+            var outrange_y =  this.stars[star_index].status_next.py > g_obj.height || this.stars[star_index].status_next.py < 0 ;
+
+            if(outrange_x ){
+                this.stars[star_index].status_next.vx = -0.5 * (this.stars[star_index].status_next.vx);
+            }
+            if(outrange_y ){
+                this.stars[star_index].status_next.vy = -0.5 * (this.stars[star_index].status_next.vy);
+            }
+            
+        
+        
+        
+        }
+        
+        apply(){
+            for(let i= 0;i <g_obj.star_num; i++){
+                let {px,py,vx,vy} = this.stars[i].status_next;
+                this.stars[i].status = {px,py,vx,vy};
+            }
+        }
+
+    }
+
+    class  Star{
+        constructor(){
+           
+            this.mass = Math.ceil(Math.random()*8+2); //Math.ceil(Math.random()*8+2);
+            this.size=Math.ceil(Math.cbrt(this.mass));
+            
+            this.status = {};
+            this.status.vx = (Math.random()*g_obj.velocity) - 0.5*g_obj.velocity;
+            this.status.vy = (Math.random()*g_obj.velocity) - 0.5*g_obj.velocity;
+            this.status.px = Math.ceil(Math.random()*g_obj.width);
+            this.status.py = Math.ceil(Math.random()*g_obj.height);
+            
+            this.status_next = {};
+            this.status_next.fx = 0;
+            this.status_next.fy = 0;
+            this.status_next.ax = 0;
+            this.status_next.ay = 0;
+            this.status_next.vx = 0;
+            this.status_next.vy = 0;
+            this.status_next.px = 0;
+            this.status_next.py = 0;
+            
+            this.ctx = null;
+            
+        }
+        
+        render(ctx){
+            ctx.save();
+            this.ctx=ctx;
+            this.ctx.beginPath();
+            this.ctx.fillStyle='lightgray';
+            this.ctx.arc(this.status.px-this.size/2,this.status.py-this.size/2,this.size,0,Math.PI*2);
+            this.ctx.closePath();
+            this.ctx.fill();
+            ctx.restore();
+        }
+    }           
+    
+    
+
+    var canvas = document.getElementById('ID');
+    var ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth ;
+    canvas.height = window.innerHeight ;
+    
+    let galaxy = new Galaxy("Galaxy",ctx,canvas);
+    
+    //console.time("refresh");
+    //console.timeEnd("refresh");
+    
+
+    requestAnimFrame(animine); 
+      
+    function animine(){
+        g_obj.animine_status && galaxy.render();
+        requestAnimFrame(animine); 
+    }
+
+
+    
+    document.body.addEventListener("click", function(){
+        g_obj.animine_status = g_obj.animine_status ?false :true;
+    });
+    
+</script>
+</body>
+</html>
